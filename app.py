@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import shap
+import io
+import base64
 
 # 页面配置
 st.set_page_config(
@@ -10,6 +13,10 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# 设置中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 
 # 自定义CSS样式
 st.markdown("""
@@ -26,28 +33,19 @@ st.markdown("""
         border-radius: 15px;
         border: 2px solid #e9ecef;
         margin-bottom: 2rem;
-        max-width: 800px;
+        max-width: 600px;
         margin-left: auto;
         margin-right: auto;
     }
-    .feature-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        padding: 0.5rem;
-    }
-    .feature-label {
-        flex: 1;
-        font-weight: bold;
-        color: #495057;
-    }
-    .feature-input {
-        flex: 1;
-        text-align: right;
+    .feature-item {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: white;
+        border-radius: 8px;
+        border-left: 4px solid #1f77b4;
     }
     .stButton button {
-        width: 200px;
+        width: 100%;
         background-color: #1f77b4;
         color: white;
         font-size: 1.2rem;
@@ -55,8 +53,7 @@ st.markdown("""
         padding: 0.75rem;
         border-radius: 10px;
         border: none;
-        margin: 1rem auto;
-        display: block;
+        margin-top: 1rem;
     }
     .stButton button:hover {
         background-color: #1668a5;
@@ -75,18 +72,6 @@ st.markdown("""
         border-radius: 10px;
         border: 1px solid #dee2e6;
         margin: 2rem 0;
-    }
-    .feature-value-display {
-        display: flex;
-        justify-content: space-around;
-        margin-top: 1rem;
-        font-size: 0.9rem;
-        color: #666;
-        flex-wrap: wrap;
-    }
-    .feature-item {
-        margin: 0.5rem 1rem;
-        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -136,109 +121,59 @@ def calculate_shap_values(sample_data):
     current_value = base_value + shap_values.sum()
     current_value = max(0.01, min(0.99, current_value))
     
-    return base_value, current_value, shap_values, feature_names
+    return base_value, current_value, shap_values, feature_names, features
 
-def create_horizontal_shap_plot(base_value, current_value, shap_values, feature_names, sample_data):
-    """创建水平SHAP力图，类似提供的图片样式"""
+def create_shap_force_plot(base_value, shap_values, sample_data):
+    """创建SHAP力分析图"""
     
-    fig = go.Figure()
+    # 特征显示名称映射
+    feature_display_names = {
+        'FTSST': 'FTSST',
+        'Complications': 'Complications',
+        'fall': 'History of falls',
+        'bl_crp': 'CRP',
+        'PA': 'PA',
+        'bl_hgb': 'HGB',
+        'smoke': 'Smoke',
+        'gender': 'Gender',
+        'age': 'Age',
+        'bmi': 'BMI',
+        'ADL': 'ADL'
+    }
     
-    # 计算累积值
-    cumulative = base_value
-    x_positions = [base_value]
+    features = list(sample_data.keys())
     
-    # 添加基准线
-    fig.add_shape(
-        type="line",
-        x0=base_value, y0=0,
-        x1=base_value, y1=1,
-        line=dict(color="black", width=3, dash="dash"),
-        name="Base Value"
+    # 创建特征显示名称（包含数值）
+    feature_display = []
+    for feat in features:
+        display_name = feature_display_names[feat]
+        value = sample_data[feat]
+        feature_display.append(f"{display_name} = {value}")
+    
+    # 创建图形
+    plt.figure(figsize=(14, 6))
+    
+    # 创建SHAP力图
+    shap.force_plot(
+        base_value,
+        shap_values,
+        feature_names=feature_display,
+        matplotlib=True,
+        show=False,
+        plot_cmap=['#FF0D57', '#1E88E5']  # 红色=增加风险，蓝色=降低风险
     )
     
-    # 添加每个特征的贡献箭头
-    for i, (feature, shap_val) in enumerate(zip(feature_names, shap_values)):
-        start_x = cumulative
-        end_x = cumulative + shap_val
-        cumulative = end_x
-        
-        # 确定颜色
-        color = '#FF6B6B' if shap_val > 0 else '#4ECDC4'
-        
-        # 添加箭头
-        fig.add_trace(go.Scatter(
-            x=[start_x, end_x],
-            y=[0.5, 0.5],
-            mode='lines+markers',
-            line=dict(color=color, width=8),
-            marker=dict(size=0),
-            name=feature,
-            hovertemplate=f'<b>{feature}</b><br>贡献: {shap_val:.4f}<br>特征值: {list(sample_data.values())[i]}<extra></extra>'
-        ))
-        
-        x_positions.append(end_x)
+    plt.title("SHAP Force Plot for Individual Prediction", 
+              fontsize=16, fontweight='bold', pad=20)
+    plt.tight_layout()
     
-    # 添加最终预测值点
-    fig.add_trace(go.Scatter(
-        x=[current_value],
-        y=[0.5],
-        mode='markers',
-        marker=dict(size=15, color='#FFD93D', line=dict(width=2, color='black')),
-        name='预测值'
-    ))
+    # 将matplotlib图形转换为图片显示在Streamlit中
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+    buf.seek(0)
+    plt.close()
     
-    fig.update_layout(
-        title=dict(
-            text="SHAP Force Plot for Individual Prediction",
-            x=0.5,
-            xanchor='center',
-            font=dict(size=16, weight='bold')
-        ),
-        xaxis=dict(
-            title="模型输出值",
-            range=[0, 0.7],
-            gridcolor='lightgray',
-            showgrid=True
-        ),
-        yaxis=dict(
-            showticklabels=False,
-            range=[0, 1],
-            showgrid=False
-        ),
-        height=300,
-        showlegend=False,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=80, b=100)
-    )
-    
-    # 添加higher/lower标签
-    fig.add_annotation(
-        x=0.02, y=0.9,
-        xref="paper", yref="paper",
-        text="higher",
-        showarrow=False,
-        font=dict(color="red", size=12)
-    )
-    
-    fig.add_annotation(
-        x=0.98, y=0.9,
-        xref="paper", yref="paper",
-        text="lower",
-        showarrow=False,
-        font=dict(color="blue", size=12)
-    )
-    
-    # 添加base value标签
-    fig.add_annotation(
-        x=base_value, y=0.1,
-        text=f"base value<br>{base_value:.3f}",
-        showarrow=False,
-        font=dict(size=10),
-        bgcolor="lightgray"
-    )
-    
-    return fig
+    return buf
 
 # 应用标题
 st.markdown('<h1 class="main-header">🏥 衰弱风险预测评估系统</h1>', unsafe_allow_html=True)
@@ -248,47 +183,55 @@ with st.form("assessment_form"):
     st.markdown('<div class="assessment-section">', unsafe_allow_html=True)
     
     # 所有特征排成一列
-    features_data = []
+    st.markdown("### 请输入患者信息：")
     
-    # 人口学特征
-    st.markdown("### 人口学特征")
-    col1, col2 = st.columns(2)
-    with col1:
-        age = st.slider("年龄", 50, 100, 71)
-    with col2:
-        gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    age = st.slider("年龄", 50, 100, 71)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    col3, col4 = st.columns(2)
-    with col3:
-        bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
-    with col4:
-        smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # 身体功能指标
-    st.markdown("### 身体功能指标")
-    col5, col6, col7 = st.columns(3)
-    with col5:
-        ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
-                           format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
-    with col6:
-        adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
-                         format_func=lambda x: "无限制" if x == 0 else "有限制")
-    with col7:
-        pa = st.selectbox("体力活动水平", [0, 1, 2], 
-                        format_func=lambda x: ["高", "中", "低"][x])
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # 临床指标
-    st.markdown("### 临床指标")
-    col8, col9, col10, col11 = st.columns(4)
-    with col8:
-        complications = st.selectbox("并发症数量", [0, 1, 2], 
-                                   format_func=lambda x: ["无", "1个", "≥2个"][x])
-    with col9:
-        fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
-    with col10:
-        bl_crp = st.slider("CRP (mg/L)", 0.0, 20.0, 9.0, 0.1)
-    with col11:
-        bl_hgb = st.slider("血红蛋白 (g/L)", 80.0, 200.0, 150.0, 1.0)
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
+                       format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
+                     format_func=lambda x: "无限制" if x == 0 else "有限制")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    pa = st.selectbox("体力活动水平", [0, 1, 2], 
+                    format_func=lambda x: ["高", "中", "低"][x])
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    complications = st.selectbox("并发症数量", [0, 1, 2], 
+                               format_func=lambda x: ["无", "1个", "≥2个"][x])
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    bl_crp = st.slider("CRP (mg/L)", 0.0, 20.0, 9.0, 0.1)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
+    bl_hgb = st.slider("血红蛋白 (g/L)", 80.0, 200.0, 150.0, 1.0)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # 预测按钮
     submit_button = st.form_submit_button("🚀 点击预测")
@@ -313,7 +256,7 @@ if submit_button:
     }
     
     # 计算SHAP值
-    base_val, current_val, shap_vals, feature_names = calculate_shap_values(sample_data)
+    base_val, current_val, shap_vals, feature_names, features = calculate_shap_values(sample_data)
     
     # 显示预测结果
     st.markdown("---")
@@ -321,49 +264,41 @@ if submit_button:
     st.markdown(f"### 📊 预测结果: 患者衰弱概率为 **{current_val:.1%}**")
     st.markdown(f'</div>', unsafe_allow_html=True)
     
-    # 显示水平SHAP力图
+    # 生成并显示SHAP力图
+    st.markdown("### 📈 SHAP力分析图")
     st.markdown('<div class="shap-container">', unsafe_allow_html=True)
-    fig = create_horizontal_shap_plot(base_val, current_val, shap_vals, feature_names, sample_data)
-    st.plotly_chart(fig, use_container_width=True)
     
-    # 在SHAP图下方显示特征名称和数值
-    st.markdown('<div class="feature-value-display">', unsafe_allow_html=True)
-    
-    # 特征显示名称映射
-    feature_display_map = {
-        'FTSST': 'FTSST',
-        'Complications': 'Complications',
-        'History of falls': 'History of falls',
-        'CRP': 'CRP',
-        'PA': 'PA',
-        'HGB': 'HGB',
-        'Smoke': 'Smoke',
-        'Gender': 'Gender',
-        'Age': 'Age',
-        'BMI': 'BMI',
-        'ADL': 'ADL'
-    }
-    
-    # 显示所有特征的值
-    for i, feature in enumerate(feature_names):
-        value = list(sample_data.values())[i]
-        st.markdown(f'<div class="feature-item"><strong>{feature_display_map[feature]}</strong> = {value}</div>', 
-                   unsafe_allow_html=True)
+    shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
+    st.image(shap_image, use_column_width=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # 风险分析
-    st.markdown("---")
-    col_left, col_right = st.columns(2)
+    # 详细特征分析
+    st.markdown("### 🔍 详细特征分析")
     
-    with col_left:
-        st.markdown("### ⚠️ 主要风险因素")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### ⚠️ 风险因素")
         risk_factors = []
-        for i, (feature, shap_val) in enumerate(zip(feature_names, shap_vals)):
-            if shap_val > 0.01:
-                value = list(sample_data.values())[i]
-                risk_factors.append(f"**{feature}** = {value} (贡献: {shap_val:.4f})")
+        positive_features = ['FTSST', 'Complications', 'fall', 'bl_crp', 'age', 'bmi', 'ADL', 'gender']
+        for feat in positive_features:
+            if feat in features:
+                idx = features.index(feat)
+                shap_val = shap_vals[idx]
+                value = sample_data[feat]
+                if shap_val > 0.01:
+                    display_name = {
+                        'FTSST': 'FTSST',
+                        'Complications': 'Complications',
+                        'fall': 'History of falls',
+                        'bl_crp': 'CRP',
+                        'age': 'Age',
+                        'bmi': 'BMI',
+                        'ADL': 'ADL',
+                        'gender': 'Gender'
+                    }[feat]
+                    risk_factors.append(f"**{display_name}** = {value} (贡献: {shap_val:.4f})")
         
         if risk_factors:
             for factor in risk_factors:
@@ -371,19 +306,71 @@ if submit_button:
         else:
             st.info("无显著风险因素")
     
-    with col_right:
-        st.markdown("### 🛡️ 保护因素")
+    with col2:
+        st.markdown("#### 🛡️ 保护因素")
         protective_factors = []
-        for i, (feature, shap_val) in enumerate(zip(feature_names, shap_vals)):
-            if shap_val < -0.01:
-                value = list(sample_data.values())[i]
-                protective_factors.append(f"**{feature}** = {value} (贡献: {shap_val:.4f})")
+        negative_features = ['PA', 'smoke', 'bl_hgb']
+        for feat in negative_features:
+            if feat in features:
+                idx = features.index(feat)
+                shap_val = shap_vals[idx]
+                value = sample_data[feat]
+                if shap_val < -0.01:
+                    display_name = {
+                        'PA': 'PA',
+                        'smoke': 'Smoke',
+                        'bl_hgb': 'HGB'
+                    }[feat]
+                    protective_factors.append(f"**{display_name}** = {value} (贡献: {shap_val:.4f})")
         
         if protective_factors:
             for factor in protective_factors:
                 st.success(factor)
         else:
             st.info("无显著保护因素")
+    
+    # 技术细节
+    with st.expander("📋 查看技术细节"):
+        st.write(f"**基准值 (Base Value):** {base_val:.4f}")
+        st.write(f"**当前预测值:** {current_val:.4f}")
+        
+        # 创建贡献度表格
+        contribution_data = []
+        for i, feature in enumerate(features):
+            display_name = {
+                'FTSST': 'FTSST',
+                'Complications': 'Complications',
+                'fall': 'History of falls',
+                'bl_crp': 'CRP',
+                'PA': 'PA',
+                'bl_hgb': 'HGB',
+                'smoke': 'Smoke',
+                'gender': 'Gender',
+                'age': 'Age',
+                'bmi': 'BMI',
+                'ADL': 'ADL'
+            }[feature]
+            
+            contribution_data.append({
+                '特征': display_name,
+                'SHAP值': shap_vals[i],
+                '特征值': sample_data[feature],
+                '影响方向': '增加风险' if shap_vals[i] > 0 else '降低风险'
+            })
+        
+        contribution_df = pd.DataFrame(contribution_data)
+        contribution_df = contribution_df.sort_values('SHAP值', key=abs, ascending=False)
+        
+        st.dataframe(
+            contribution_df,
+            use_container_width=True,
+            column_config={
+                "特征": st.column_config.TextColumn("特征"),
+                "SHAP值": st.column_config.NumberColumn("SHAP值", format="%.4f"),
+                "特征值": st.column_config.NumberColumn("特征值"),
+                "影响方向": st.column_config.TextColumn("影响方向")
+            }
+        )
 
 # 页脚说明
 st.markdown("---")
