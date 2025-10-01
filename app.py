@@ -17,7 +17,7 @@ st.set_page_config(
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-# 自定义CSS样式
+# 自定义CSS样式 - 移除所有边框和特殊样式
 st.markdown("""
 <style>
     .main-header {
@@ -25,23 +25,6 @@ st.markdown("""
         color: #1f77b4;
         text-align: center;
         margin-bottom: 2rem;
-    }
-    .assessment-section {
-        background-color: #f8f9fa;
-        padding: 2rem;
-        border-radius: 15px;
-        border: 2px solid #e9ecef;
-        margin-bottom: 2rem;
-        max-width: 600px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    .feature-item {
-        margin-bottom: 1.5rem;
-        padding: 1rem;
-        background-color: white;
-        border-radius: 8px;
-        border-left: 4px solid #1f77b4;
     }
     .stButton button {
         width: 100%;
@@ -61,16 +44,23 @@ st.markdown("""
         background-color: #e8f5e8;
         padding: 1.5rem;
         border-radius: 10px;
-        border-left: 5px solid #28a745;
         margin-top: 2rem;
         text-align: center;
     }
-    .shap-container {
-        background-color: white;
-        padding: 2rem;
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
-        margin: 2rem 0;
+    /* 移除所有widget的边框和特殊样式 */
+    .stSlider, .stSelectbox, .stNumberInput {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    /* 移除标签的蓝色标记 */
+    label {
+        color: #262730 !important;
+    }
+    /* 移除所有边框 */
+    div[data-testid="stForm"] {
+        border: none !important;
+        background: none !important;
+        padding: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -177,65 +167,40 @@ def create_shap_force_plot(base_value, shap_values, sample_data):
 # 应用标题
 st.markdown('<h1 class="main-header">🏥 衰弱风险预测评估系统</h1>', unsafe_allow_html=True)
 
-# 评估表单 - 所有问题排成一列
+# 评估表单 - 所有问题排成一列，移除所有边框
 with st.form("assessment_form"):
-    st.markdown('<div class="assessment-section">', unsafe_allow_html=True)
     
     # 所有特征排成一列
     st.markdown("### 请输入患者信息：")
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     age = st.slider("年龄", 50, 100, 71)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
                        format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
                      format_func=lambda x: "无限制" if x == 0 else "有限制")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     pa = st.selectbox("体力活动水平", [0, 1, 2], 
                     format_func=lambda x: ["高", "中", "低"][x])
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     complications = st.selectbox("并发症数量", [0, 1, 2], 
                                format_func=lambda x: ["无", "1个", "≥2个"][x])
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     bl_crp = st.slider("CRP (mg/L)", 0.0, 20.0, 9.0, 0.1)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="feature-item">', unsafe_allow_html=True)
     bl_hgb = st.slider("血红蛋白 (g/L)", 80.0, 200.0, 150.0, 1.0)
-    st.markdown('</div>', unsafe_allow_html=True)
     
     # 预测按钮
     submit_button = st.form_submit_button("🚀 点击预测")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 处理预测结果
 if submit_button:
@@ -265,111 +230,9 @@ if submit_button:
     
     # 生成并显示SHAP力图
     st.markdown("### 📈 SHAP力分析图")
-    st.markdown('<div class="shap-container">', unsafe_allow_html=True)
     
     shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
-    st.image(shap_image, use_container_width=True)  # 修复：使用use_container_width
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # 详细特征分析
-    st.markdown("### 🔍 详细特征分析")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### ⚠️ 风险因素")
-        risk_factors = []
-        positive_features = ['FTSST', 'Complications', 'fall', 'bl_crp', 'age', 'bmi', 'ADL', 'gender']
-        for feat in positive_features:
-            if feat in features:
-                idx = features.index(feat)
-                shap_val = shap_vals[idx]
-                value = sample_data[feat]
-                if shap_val > 0.01:
-                    display_name = {
-                        'FTSST': 'FTSST',
-                        'Complications': 'Complications',
-                        'fall': 'History of falls',
-                        'bl_crp': 'CRP',
-                        'age': 'Age',
-                        'bmi': 'BMI',
-                        'ADL': 'ADL',
-                        'gender': 'Gender'
-                    }[feat]
-                    risk_factors.append(f"**{display_name}** = {value} (贡献: {shap_val:.4f})")
-        
-        if risk_factors:
-            for factor in risk_factors:
-                st.error(factor)
-        else:
-            st.info("无显著风险因素")
-    
-    with col2:
-        st.markdown("#### 🛡️ 保护因素")
-        protective_factors = []
-        negative_features = ['PA', 'smoke', 'bl_hgb']
-        for feat in negative_features:
-            if feat in features:
-                idx = features.index(feat)
-                shap_val = shap_vals[idx]
-                value = sample_data[feat]
-                if shap_val < -0.01:
-                    display_name = {
-                        'PA': 'PA',
-                        'smoke': 'Smoke',
-                        'bl_hgb': 'HGB'
-                    }[feat]
-                    protective_factors.append(f"**{display_name}** = {value} (贡献: {shap_val:.4f})")
-        
-        if protective_factors:
-            for factor in protective_factors:
-                st.success(factor)
-        else:
-            st.info("无显著保护因素")
-    
-    # 技术细节
-    with st.expander("📋 查看技术细节"):
-        st.write(f"**基准值 (Base Value):** {base_val:.4f}")
-        st.write(f"**当前预测值:** {current_val:.4f}")
-        
-        # 创建贡献度表格
-        contribution_data = []
-        for i, feature in enumerate(features):
-            display_name = {
-                'FTSST': 'FTSST',
-                'Complications': 'Complications',
-                'fall': 'History of falls',
-                'bl_crp': 'CRP',
-                'PA': 'PA',
-                'bl_hgb': 'HGB',
-                'smoke': 'Smoke',
-                'gender': 'Gender',
-                'age': 'Age',
-                'bmi': 'BMI',
-                'ADL': 'ADL'
-            }[feature]
-            
-            contribution_data.append({
-                '特征': display_name,
-                'SHAP值': shap_vals[i],
-                '特征值': sample_data[feature],
-                '影响方向': '增加风险' if shap_vals[i] > 0 else '降低风险'
-            })
-        
-        contribution_df = pd.DataFrame(contribution_data)
-        contribution_df = contribution_df.sort_values('SHAP值', key=abs, ascending=False)
-        
-        st.dataframe(
-            contribution_df,
-            use_container_width=True,  # 修复：使用use_container_width
-            column_config={
-                "特征": st.column_config.TextColumn("特征"),
-                "SHAP值": st.column_config.NumberColumn("SHAP值", format="%.4f"),
-                "特征值": st.column_config.NumberColumn("特征值"),
-                "影响方向": st.column_config.TextColumn("影响方向")
-            }
-        )
+    st.image(shap_image, use_container_width=True)
 
 # 页脚说明
 st.markdown("---")
