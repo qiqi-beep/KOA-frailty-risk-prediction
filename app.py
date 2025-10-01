@@ -1,24 +1,19 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from utils.shap_utils import (
-    get_sample_data, 
-    get_feature_display_names,
-    get_feature_descriptions,
-    calculate_shap_values,
-    create_shap_force_plot,
-    create_contribution_plot
-)
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from utils import calculate_shap_values, create_shap_force_plot_plotly
 
-# 页面设置
+# 页面配置
 st.set_page_config(
-    page_title="衰弱风险SHAP分析",
+    page_title="衰弱风险预测SHAP分析",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 自定义样式
+# 自定义CSS样式
 st.markdown("""
 <style>
     .main-header {
@@ -27,150 +22,194 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
+    .feature-section {
+        background-color: #f0f2f6;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
     .risk-high {
         color: #ff4b4b;
         font-weight: bold;
     }
-    .risk-medium {
-        color: #ffa500;
-        font-weight: bold;
-    }
     .risk-low {
-        color: #00cc96;
+        color: #0068c9;
         font-weight: bold;
-    }
-    .feature-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-def main():
-    # 标题
-    st.markdown('<h1 class="main-header">🏥 衰弱风险预测SHAP分析</h1>', unsafe_allow_html=True)
-    
-    # 侧边栏 - 参数输入
-    st.sidebar.header("📊 患者特征输入")
-    
-    # 获取特征描述
-    feature_descriptions = get_feature_descriptions()
-    sample_data = get_sample_data()
-    feature_display_names = get_feature_display_names()
-    
-    # 创建两列布局输入
-    col1, col2 = st.sidebar.columns(2)
-    
-    user_input = {}
-    with col1:
-        user_input['age'] = st.number_input("年龄", min_value=0, max_value=120, value=sample_data['age'])
-        user_input['gender'] = st.selectbox("性别", options=[0, 1], format_func=lambda x: "男" if x == 0 else "女", index=sample_data['gender'])
-        user_input['bmi'] = st.number_input("BMI", min_value=10.0, max_value=50.0, value=float(sample_data['bmi']), step=0.1)
-        user_input['FTSST'] = st.selectbox("FTSST", options=[0, 1], format_func=lambda x: "<12s" if x == 0 else "≥12s", index=sample_data['FTSST'])
-        user_input['Complications'] = st.selectbox("并发症", options=[0, 1, 2], format_func=lambda x: ["无", "1个", "≥2个"][x], index=sample_data['Complications'])
-        user_input['fall'] = st.selectbox("跌倒史", options=[0, 1], format_func=lambda x: "否" if x == 0 else "是", index=sample_data['fall'])
-    
-    with col2:
-        user_input['ADL'] = st.selectbox("ADL", options=[0, 1], format_func=lambda x: "无限制" if x == 0 else "有限制", index=sample_data['ADL'])
-        user_input['PA'] = st.selectbox("体力活动", options=[0, 1, 2], format_func=lambda x: ["高", "中", "低"][x], index=sample_data['PA'])
-        user_input['smoke'] = st.selectbox("吸烟", options=[0, 1], format_func=lambda x: "否" if x == 0 else "是", index=sample_data['smoke'])
-        user_input['bl_crp'] = st.number_input("CRP", min_value=0.0, max_value=50.0, value=float(sample_data['bl_crp']), step=0.1)
-        user_input['bl_hgb'] = st.number_input("HGB", min_value=50.0, max_value=200.0, value=float(sample_data['bl_hgb']), step=1.0)
-    
-    # 分析按钮
-    analyze_clicked = st.sidebar.button("🚀 开始分析", type="primary")
-    
-    # 主内容区域
-    if analyze_clicked:
-        # 计算SHAP值
-        base_value, current_value, shap_values, features = calculate_shap_values(user_input)
-        
-        # 创建特征显示名称
-        feature_display = []
-        for feat in features:
-            display_name = feature_display_names[feat]
-            value = user_input[feat]
-            feature_display.append(f"{display_name} = {value}")
-        
-        # 结果显示
-        st.header("📈 分析结果")
-        
-        # 风险水平评估
-        risk_level = "高风险" if current_value > 0.4 else "中风险" if current_value > 0.3 else "低风险"
-        risk_color = "risk-high" if risk_level == "高风险" else "risk-medium" if risk_level == "中风险" else "risk-low"
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("基准风险", f"{base_value:.1%}")
-        with col2:
-            st.metric("预测风险", f"{current_value:.1%}")
-        with col3:
-            st.metric("风险等级", f"{risk_level}", delta=None)
-        
-        # SHAP力图
-        st.subheader("🔍 SHAP力图分析")
-        st.write("下图显示了各特征对预测结果的贡献程度：")
-        
-        fig1 = create_shap_force_plot(base_value, shap_values, feature_display)
-        st.pyplot(fig1)
-        
-        # 贡献度排序图
-        st.subheader("📊 特征贡献度排序")
-        fig2 = create_contribution_plot(user_input, feature_display_names, shap_values)
-        st.pyplot(fig2)
-        
-        # 详细分析
-        st.subheader("📋 详细特征分析")
-        
-        # 风险因素总结
-        positive_features = []
-        negative_features = []
-        
-        for i, feat in enumerate(features):
-            if shap_values[i] > 0:
-                positive_features.append((feature_display_names[feat], user_input[feat], shap_values[i]))
-            else:
-                negative_features.append((feature_display_names[feat], user_input[feat], shap_values[i]))
-        
-        # 按贡献度排序
-        positive_features.sort(key=lambda x: x[2], reverse=True)
-        negative_features.sort(key=lambda x: x[2])
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**🔼 增加风险的因素:**")
-            for feat, value, shap_val in positive_features:
-                st.write(f"- {feat} = {value}: +{shap_val:.3f}")
-        
-        with col2:
-            st.write("**🔽 降低风险的因素:**")
-            for feat, value, shap_val in negative_features:
-                st.write(f"- {feat} = {value}: {shap_val:.3f}")
-        
-        # 特征说明
-        st.subheader("ℹ️ 特征说明")
-        for feat, desc in feature_descriptions.items():
-            with st.expander(f"{feature_display_names[feat]}: {desc['description']}"):
-                st.write(f"**取值说明:** {desc['values']}")
-                st.write(f"**当前值:** {user_input[feat]}")
-    
-    else:
-        # 默认显示说明
-        st.info("👈 请在左侧输入患者特征参数，然后点击'开始分析'按钮")
-        
-        # 显示默认数据预览
-        st.subheader("📝 默认样本数据预览")
-        display_df = pd.DataFrame([get_sample_data()])
-        display_df = display_df.rename(columns=get_feature_display_names())
-        st.dataframe(display_df, use_container_width=True)
-        
-        # 特征说明
-        st.subheader("📋 特征说明")
-        for feat, desc in feature_descriptions.items():
-            st.write(f"**{feature_display_names[feat]}**: {desc['description']} - {desc['values']}")
+# 应用标题
+st.markdown('<h1 class="main-header">🏥 衰弱风险预测SHAP分析平台</h1>', unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main()
+# 侧边栏 - 输入参数
+st.sidebar.header("📊 输入患者特征")
+
+with st.sidebar.expander("身体功能指标", expanded=True):
+    ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
+    adl = st.selectbox("ADL (日常生活能力)", [0, 1], format_func=lambda x: "无限制" if x == 0 else "有限制")
+    pa = st.selectbox("体力活动水平", [0, 1, 2], format_func=lambda x: ["高", "中", "低"][x])
+
+with st.sidebar.expander("临床指标", expanded=True):
+    complications = st.selectbox("并发症数量", [0, 1, 2], format_func=lambda x: ["无", "1个", "≥2个"][x])
+    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
+    bl_crp = st.slider("CRP (mg/L)", 0.0, 20.0, 9.0, 0.1)
+    bl_hgb = st.slider("血红蛋白 (g/L)", 80.0, 200.0, 150.0, 1.0)
+
+with st.sidebar.expander("人口学特征", expanded=True):
+    age = st.slider("年龄", 50, 100, 71)
+    bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
+    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+
+# 创建样本数据
+sample_data = {
+    'FTSST': ftsst,
+    'Complications': complications,
+    'fall': fall,
+    'bl_crp': float(bl_crp),
+    'PA': pa,
+    'bl_hgb': float(bl_hgb),
+    'smoke': smoke,
+    'gender': gender,
+    'age': age,
+    'bmi': float(bmi),
+    'ADL': adl
+}
+
+# 计算SHAP值
+base_val, current_val, shap_vals, feature_names = calculate_shap_values(sample_data)
+
+# 主内容区域
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.header("📈 SHAP力分析图")
+    
+    # 生成Plotly SHAP图
+    fig = create_shap_force_plot_plotly(base_val, current_val, shap_vals, feature_names, sample_data)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 显示预测结果
+    col1_1, col1_2 = st.columns(2)
+    with col1_1:
+        st.metric(
+            label="预测风险概率",
+            value=f"{current_val:.1%}",
+            delta=f"{(current_val - base_val):+.1%}",
+            delta_color="inverse"
+        )
+    with col1_2:
+        st.metric(
+            label="基准风险概率",
+            value=f"{base_val:.1%}"
+        )
+
+with col2:
+    st.header("🎯 风险分析")
+    
+    # 风险因素分析
+    risk_factors = []
+    protective_factors = []
+    
+    # 分析每个特征的风险方向
+    for i, (feature, shap_val) in enumerate(zip(feature_names, shap_vals)):
+        original_feature = list(sample_data.keys())[i]
+        value = sample_data[original_feature]
+        
+        if shap_val > 0.01:  # 显著增加风险
+            risk_factors.append(f"{feature} = {value}")
+        elif shap_val < -0.01:  # 显著降低风险
+            protective_factors.append(f"{feature} = {value}")
+    
+    st.subheader("⚠️ 主要风险因素")
+    if risk_factors:
+        for factor in risk_factors[:5]:
+            st.error(factor)
+    else:
+        st.info("无显著风险因素")
+    
+    st.subheader("🛡️ 保护因素")
+    if protective_factors:
+        for factor in protective_factors:
+            st.success(factor)
+    else:
+        st.info("无显著保护因素")
+
+# 贡献度分析
+st.header("📊 特征贡献度分析")
+
+# 创建贡献度表格
+contribution_data = []
+for i, (feature, shap_val) in enumerate(zip(feature_names, shap_vals)):
+    original_feature = list(sample_data.keys())[i]
+    contribution_data.append({
+        '特征': feature,
+        'SHAP值': shap_val,
+        '特征值': sample_data[original_feature],
+        '影响方向': '增加风险' if shap_val > 0 else '降低风险'
+    })
+
+contribution_df = pd.DataFrame(contribution_data)
+contribution_df = contribution_df.sort_values('SHAP值', key=abs, ascending=False)
+
+# 显示贡献度表格
+st.subheader("特征贡献度排序")
+st.dataframe(
+    contribution_df,
+    use_container_width=True,
+    column_config={
+        "特征": st.column_config.TextColumn("特征"),
+        "SHAP值": st.column_config.NumberColumn("SHAP值", format="%.4f"),
+        "特征值": st.column_config.NumberColumn("特征值", format="%.1f"),
+        "影响方向": st.column_config.TextColumn("影响方向")
+    }
+)
+
+# 创建贡献度条形图
+st.subheader("特征贡献度可视化")
+fig_bar = go.Figure()
+
+# 添加条形
+fig_bar.add_trace(go.Bar(
+    y=contribution_df['特征'],
+    x=contribution_df['SHAP值'],
+    orientation='h',
+    marker_color=['#FF4B4B' if x > 0 else '#0068C9' for x in contribution_df['SHAP值']],
+    hovertemplate='<b>%{y}</b><br>SHAP值: %{x:.4f}<br>影响: %{customdata}<extra></extra>',
+    customdata=contribution_df['影响方向']
+))
+
+fig_bar.update_layout(
+    title="特征对预测的贡献度 (SHAP值)",
+    xaxis_title="SHAP值",
+    yaxis_title="特征",
+    showlegend=False,
+    height=400
+)
+
+st.plotly_chart(fig_bar, use_container_width=True)
+
+# 解释说明
+st.header("💡 使用说明")
+with st.expander("点击查看详细说明"):
+    st.markdown("""
+    **SHAP图解读:**
+    - 🔴 **红色条形**: 特征增加患病风险
+    - 🔵 **蓝色条形**: 特征降低患病风险
+    - 📏 **条形长度**: 影响程度大小
+    
+    **特征说明:**
+    - **FTSST**: 5次坐立测试时间 (>12秒为风险因素)
+    - **ADL**: 日常生活能力 (受限为风险因素)
+    - **PA**: 体力活动水平 (低水平为风险因素)
+    - **Complications**: 并发症数量
+    - **跌倒史**: 是否有跌倒史
+    - **CRP**: C反应蛋白 (数值越高风险越大)
+    - **年龄**: 年龄 (越大风险越高)
+    - **BMI**: 体重指数 (越高风险越大)
+    
+    **预测说明:**
+    - **基准风险**: 所有患者的平均风险水平
+    - **预测风险**: 当前患者的个性化风险预测
+    """)
