@@ -232,7 +232,7 @@ def get_risk_recommendation(probability):
         - 多学科团队管理
         - 紧急营养支持
         """
-    elif probability > 0.3:
+    elif probability > 0.45:
         return "medium", """
         ⚠️ **中风险：建议定期监测**
         - 每3-6个月评估一次
@@ -346,3 +346,4 @@ st.markdown("""
     <p>©2025 KOA预测系统 | 仅供临床参考</p>
 </div>
 """, unsafe_allow_html=True)
+
