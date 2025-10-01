@@ -7,8 +7,8 @@ import io
 
 # 页面配置
 st.set_page_config(
-    page_title="衰弱风险预测SHAP分析",
-    page_icon="🏥",
+    page_title="膝骨关节炎患者衰弱风险预测系统",
+    page_icon="🩺 ",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -165,13 +165,13 @@ def create_shap_force_plot(base_value, shap_values, sample_data):
     return buf
 
 # 应用标题
-st.markdown('<h1 class="main-header">🏥 衰弱风险预测评估系统</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🩺 膝骨关节炎患者衰弱风险预测系统</h1>', unsafe_allow_html=True)
 
 # 评估表单 - 所有问题排成一列，移除所有边框
 with st.form("assessment_form"):
     
     # 所有特征排成一列
-    st.markdown("### 请输入患者信息：")
+    st.markdown("### 根据输入的临床特征，预测膝关节骨关节炎（KOA）患者发生衰弱（Frailty）的概率，并可视化决策依据。")
     
     age = st.slider("年龄", 50, 100, 71)
     
@@ -241,3 +241,4 @@ st.markdown("""
     <p>💡 <strong>使用说明：</strong> 填写完所有评估指标后，点击"点击预测"按钮获取个性化衰弱风险评估结果</p>
 </div>
 """, unsafe_allow_html=True)
+
