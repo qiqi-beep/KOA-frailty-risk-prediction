@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import shap
 import io
 
-# 页面配置
+# 页面配置 - 使用wide布局让页面更宽
 st.set_page_config(
     page_title="膝骨关节炎患者衰弱风险预测系统",
-    page_icon="🩺 ",
-    layout="centered",
+    page_icon="🩺",
+    layout="wide",  # 改为wide布局
     initial_sidebar_state="collapsed"
 )
 
@@ -23,6 +23,12 @@ st.markdown("""
     .main-header {
         font-size: 2.5rem;
         color: #1f77b4;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .subtitle {
+        font-size: 1.1rem;
+        color: #666;
         text-align: center;
         margin-bottom: 2rem;
     }
@@ -46,6 +52,27 @@ st.markdown("""
         border-radius: 10px;
         margin-top: 2rem;
         text-align: center;
+    }
+    .high-risk {
+        background-color: #ffebee;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #f44336;
+        margin-top: 1rem;
+    }
+    .medium-risk {
+        background-color: #fff3e0;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #ff9800;
+        margin-top: 1rem;
+    }
+    .low-risk {
+        background-color: #e8f5e8;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #4caf50;
+        margin-top: 1rem;
     }
     /* 移除所有widget的边框和特殊样式 */
     .stSlider, .stSelectbox, .stNumberInput {
@@ -164,43 +191,76 @@ def create_shap_force_plot(base_value, shap_values, sample_data):
     
     return buf
 
+def get_risk_recommendation(probability):
+    """根据概率值提供建议"""
+    if probability > 0.7:
+        return "high", """
+        ⚠️ **高风险：建议立即临床干预**
+        - 每周随访监测
+        - 必须物理治疗干预  
+        - 全面评估并发症
+        - 多学科团队管理
+        - 紧急营养支持
+        """
+    elif probability > 0.3:
+        return "medium", """
+        ⚠️ **中风险：建议定期监测**
+        - 每3-6个月评估一次
+        - 建议适度运动计划
+        - 基础营养评估
+        - 跌倒预防教育
+        - 定期功能评估
+        """
+    else:
+        return "low", """
+        ✅ **低风险：建议常规健康管理**
+        - 每年体检一次
+        - 保持健康生活方式
+        - 预防性健康指导
+        - 适度体育活动
+        - 均衡营养摄入
+        """
+
 # 应用标题
 st.markdown('<h1 class="main-header">🩺 膝骨关节炎患者衰弱风险预测系统</h1>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">根据输入的临床特征，预测膝关节骨关节炎（KOA）患者发生衰弱（Frailty）的概率，并可视化决策依据。</div>', unsafe_allow_html=True)
 
-# 评估表单 - 所有问题排成一列，移除所有边框
-with st.form("assessment_form"):
-    
-    # 所有特征排成一列
-    st.markdown("### 根据输入的临床特征，预测膝关节骨关节炎（KOA）患者发生衰弱（Frailty）的概率，并可视化决策依据。")
-    
-    age = st.slider("年龄", 50, 100, 71)
-    
-    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
-    
-    bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
-    
-    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
-    
-    ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
-                       format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
-    
-    adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
-                     format_func=lambda x: "无限制" if x == 0 else "有限制")
-    
-    pa = st.selectbox("体力活动水平", [0, 1, 2], 
-                    format_func=lambda x: ["高", "中", "低"][x])
-    
-    complications = st.selectbox("并发症数量", [0, 1, 2], 
-                               format_func=lambda x: ["无", "1个", "≥2个"][x])
-    
-    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
-    
-    bl_crp = st.slider("CRP (mg/L)", 0.0, 20.0, 9.0, 0.1)
-    
-    bl_hgb = st.slider("血红蛋白 (g/L)", 80.0, 200.0, 150.0, 1.0)
-    
-    # 预测按钮
-    submit_button = st.form_submit_button("🚀 点击预测")
+# 使用列布局让表单更宽
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    # 评估表单 - 所有问题排成一列，移除所有边框
+    with st.form("assessment_form"):
+        
+        # 所有特征排成一列
+        age = st.slider("年龄", 50, 100, 71)
+        
+        gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+        
+        bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
+        
+        smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+        
+        ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
+                           format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
+        
+        adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
+                         format_func=lambda x: "无限制" if x == 0 else "有限制")
+        
+        pa = st.selectbox("体力活动水平", [0, 1, 2], 
+                        format_func=lambda x: ["高", "中", "低"][x])
+        
+        complications = st.selectbox("并发症数量", [0, 1, 2], 
+                                   format_func=lambda x: ["无", "1个", "≥2个"][x])
+        
+        fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
+        
+        bl_crp = st.slider("C反应蛋白（CRP）mg/L", 0.0, 30.0, 9.0, 0.1)  # 修改标题和范围
+        
+        bl_hgb = st.slider("血红蛋白（HGB）g/L", 50.0, 250.0, 150.0, 1.0)  # 修改标题和范围
+        
+        # 预测按钮
+        submit_button = st.form_submit_button("🚀 点击预测")
 
 # 处理预测结果
 if submit_button:
@@ -224,15 +284,30 @@ if submit_button:
     
     # 显示预测结果
     st.markdown("---")
-    st.markdown(f'<div class="result-section">', unsafe_allow_html=True)
-    st.markdown(f"### 📊 预测结果: 患者衰弱概率为 **{current_val:.1%}**")
-    st.markdown(f'</div>', unsafe_allow_html=True)
     
-    # 生成并显示SHAP力图
-    st.markdown("### 📈 SHAP力分析图")
+    # 使用列布局显示结果
+    result_col1, result_col2 = st.columns([1, 1])
     
-    shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
-    st.image(shap_image, use_container_width=True)
+    with result_col1:
+        st.markdown(f'<div class="result-section">', unsafe_allow_html=True)
+        st.markdown(f"### 📊 预测结果: 患者衰弱概率为 **{current_val:.1%}**")
+        st.markdown(f'</div>', unsafe_allow_html=True)
+        
+        # 根据概率提供建议
+        risk_level, recommendation = get_risk_recommendation(current_val)
+        
+        if risk_level == "high":
+            st.markdown(f'<div class="high-risk">{recommendation}</div>', unsafe_allow_html=True)
+        elif risk_level == "medium":
+            st.markdown(f'<div class="medium-risk">{recommendation}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="low-risk">{recommendation}</div>', unsafe_allow_html=True)
+    
+    with result_col2:
+        # 生成并显示SHAP力图
+        st.markdown("### 📈 SHAP力分析图")
+        shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
+        st.image(shap_image, use_container_width=True)
 
 # 页脚说明
 st.markdown("---")
@@ -241,4 +316,3 @@ st.markdown("""
     <p>💡 <strong>使用说明：</strong> 填写完所有评估指标后，点击"点击预测"按钮获取个性化衰弱风险评估结果</p>
 </div>
 """, unsafe_allow_html=True)
-
