@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import shap
 import io
-import base64
 
 # 页面配置
 st.set_page_config(
@@ -269,7 +268,7 @@ if submit_button:
     st.markdown('<div class="shap-container">', unsafe_allow_html=True)
     
     shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
-    st.image(shap_image, use_column_width=True)
+    st.image(shap_image, use_container_width=True)  # 修复：使用use_container_width
     
     st.markdown('</div>', unsafe_allow_html=True)
     
@@ -363,7 +362,7 @@ if submit_button:
         
         st.dataframe(
             contribution_df,
-            use_container_width=True,
+            use_container_width=True,  # 修复：使用use_container_width
             column_config={
                 "特征": st.column_config.TextColumn("特征"),
                 "SHAP值": st.column_config.NumberColumn("SHAP值", format="%.4f"),
