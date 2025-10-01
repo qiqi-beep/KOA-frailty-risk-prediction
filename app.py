@@ -261,32 +261,32 @@ st.markdown('<div class="form-container">', unsafe_allow_html=True)
 # 评估表单 - 所有问题排成一列
 with st.form("assessment_form"):
     
-    # 所有特征排成一列
-    age = st.slider("年龄", 50, 100, 71)
+    # 所有特征排成一列 - 使用默认值或最小值
+    age = st.slider("年龄", 40, 110, 40)  # 修改：范围40-110，默认40
     
-    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性", index=0)  # 默认男性
     
-    bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
+    bmi = st.slider("BMI", 15.0, 40.0, 18.5, 0.1)  # 默认健康BMI下限
     
-    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是", index=0)  # 默认不吸烟
     
     ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
-                       format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
+                       format_func=lambda x: "≤12秒" if x == 0 else ">12秒", index=0)  # 默认≤12秒
     
     adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
-                     format_func=lambda x: "无限制" if x == 0 else "有限制")
+                     format_func=lambda x: "无限制" if x == 0 else "有限制", index=0)  # 默认无限制
     
     pa = st.selectbox("体力活动水平", [0, 1, 2], 
-                    format_func=lambda x: ["高", "中", "低"][x])
+                    format_func=lambda x: ["高", "中", "低"][x], index=0)  # 默认高活动水平
     
     complications = st.selectbox("并发症数量", [0, 1, 2], 
-                               format_func=lambda x: ["无", "1个", "≥2个"][x])
+                               format_func=lambda x: ["无", "1个", "≥2个"][x], index=0)  # 默认无并发症
     
-    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
+    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有", index=0)  # 默认无跌倒史
     
-    bl_crp = st.slider("C反应蛋白（CRP）mg/L", 0.0, 30.0, 9.0, 0.1)
+    bl_crp = st.slider("C反应蛋白（CRP）mg/L", 0.0, 30.0, 0.0, 0.1)  # 默认0
     
-    bl_hgb = st.slider("血红蛋白（HGB）g/L", 50.0, 250.0, 150.0, 1.0)
+    bl_hgb = st.slider("血红蛋白（HGB）g/L", 50.0, 250.0, 120.0, 1.0)  # 默认正常值下限
     
     # 预测按钮
     submit_button = st.form_submit_button("🚀 点击预测")
