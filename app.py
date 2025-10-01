@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import shap
 import io
 
-# 页面配置 - 使用wide布局让页面更宽
+# 页面配置 - 使用centered布局但通过CSS让内容居中
 st.set_page_config(
     page_title="膝骨关节炎患者衰弱风险预测系统",
     page_icon="🩺",
-    layout="wide",  # 改为wide布局
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
@@ -17,7 +17,7 @@ st.set_page_config(
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-# 自定义CSS样式 - 移除所有边框和特殊样式
+# 自定义CSS样式 - 让所有内容居中
 st.markdown("""
 <style>
     .main-header {
@@ -52,6 +52,9 @@ st.markdown("""
         border-radius: 10px;
         margin-top: 2rem;
         text-align: center;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .high-risk {
         background-color: #ffebee;
@@ -59,6 +62,9 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #f44336;
         margin-top: 1rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .medium-risk {
         background-color: #fff3e0;
@@ -66,6 +72,9 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #ff9800;
         margin-top: 1rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .low-risk {
         background-color: #e8f5e8;
@@ -73,6 +82,27 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #4caf50;
         margin-top: 1rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .form-container {
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .shap-container {
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
+    }
+    .footer {
+        text-align: center;
+        color: #666;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e0e0e0;
     }
     /* 移除所有widget的边框和特殊样式 */
     .stSlider, .stSelectbox, .stNumberInput {
@@ -223,44 +253,45 @@ def get_risk_recommendation(probability):
 
 # 应用标题
 st.markdown('<h1 class="main-header">🩺 膝骨关节炎患者衰弱风险预测系统</h1>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">根据输入的临床特征，预测膝关节骨关节炎（KOA）患者发生衰弱（Frailty）的概率，并可视化决策依据。</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">根据输入的临床特征，预测膝关节骨关节炎患者发生衰弱的概率，并可视化决策依据。</div>', unsafe_allow_html=True)
 
-# 使用列布局让表单更宽
-col1, col2 = st.columns([1, 1])
+# 表单容器 - 居中
+st.markdown('<div class="form-container">', unsafe_allow_html=True)
 
-with col1:
-    # 评估表单 - 所有问题排成一列，移除所有边框
-    with st.form("assessment_form"):
-        
-        # 所有特征排成一列
-        age = st.slider("年龄", 50, 100, 71)
-        
-        gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
-        
-        bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
-        
-        smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
-        
-        ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
-                           format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
-        
-        adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
-                         format_func=lambda x: "无限制" if x == 0 else "有限制")
-        
-        pa = st.selectbox("体力活动水平", [0, 1, 2], 
-                        format_func=lambda x: ["高", "中", "低"][x])
-        
-        complications = st.selectbox("并发症数量", [0, 1, 2], 
-                                   format_func=lambda x: ["无", "1个", "≥2个"][x])
-        
-        fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
-        
-        bl_crp = st.slider("C反应蛋白（CRP）mg/L", 0.0, 30.0, 9.0, 0.1)  # 修改标题和范围
-        
-        bl_hgb = st.slider("血红蛋白（HGB）g/L", 50.0, 250.0, 150.0, 1.0)  # 修改标题和范围
-        
-        # 预测按钮
-        submit_button = st.form_submit_button("🚀 点击预测")
+# 评估表单 - 所有问题排成一列
+with st.form("assessment_form"):
+    
+    # 所有特征排成一列
+    age = st.slider("年龄", 50, 100, 71)
+    
+    gender = st.selectbox("性别", [0, 1], format_func=lambda x: "男性" if x == 0 else "女性")
+    
+    bmi = st.slider("BMI", 15.0, 40.0, 26.0, 0.1)
+    
+    smoke = st.selectbox("吸烟", [0, 1], format_func=lambda x: "否" if x == 0 else "是")
+    
+    ftsst = st.selectbox("FTSST (5次坐立测试)", [0, 1], 
+                       format_func=lambda x: "≤12秒" if x == 0 else ">12秒")
+    
+    adl = st.selectbox("ADL (日常生活能力)", [0, 1], 
+                     format_func=lambda x: "无限制" if x == 0 else "有限制")
+    
+    pa = st.selectbox("体力活动水平", [0, 1, 2], 
+                    format_func=lambda x: ["高", "中", "低"][x])
+    
+    complications = st.selectbox("并发症数量", [0, 1, 2], 
+                               format_func=lambda x: ["无", "1个", "≥2个"][x])
+    
+    fall = st.selectbox("跌倒史", [0, 1], format_func=lambda x: "无" if x == 0 else "有")
+    
+    bl_crp = st.slider("C反应蛋白（CRP）mg/L", 0.0, 30.0, 9.0, 0.1)
+    
+    bl_hgb = st.slider("血红蛋白（HGB）g/L", 50.0, 250.0, 150.0, 1.0)
+    
+    # 预测按钮
+    submit_button = st.form_submit_button("🚀 点击预测")
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # 处理预测结果
 if submit_button:
@@ -282,37 +313,36 @@ if submit_button:
     # 计算SHAP值
     base_val, current_val, shap_vals, feature_names, features = calculate_shap_values(sample_data)
     
-    # 显示预测结果
+    # 显示预测结果 - 居中
     st.markdown("---")
     
-    # 使用列布局显示结果
-    result_col1, result_col2 = st.columns([1, 1])
+    # 预测结果
+    st.markdown(f'<div class="result-section">', unsafe_allow_html=True)
+    st.markdown(f"### 📊 预测结果: 患者衰弱概率为 **{current_val:.1%}**")
+    st.markdown(f'</div>', unsafe_allow_html=True)
     
-    with result_col1:
-        st.markdown(f'<div class="result-section">', unsafe_allow_html=True)
-        st.markdown(f"### 📊 预测结果: 患者衰弱概率为 **{current_val:.1%}**")
-        st.markdown(f'</div>', unsafe_allow_html=True)
-        
-        # 根据概率提供建议
-        risk_level, recommendation = get_risk_recommendation(current_val)
-        
-        if risk_level == "high":
-            st.markdown(f'<div class="high-risk">{recommendation}</div>', unsafe_allow_html=True)
-        elif risk_level == "medium":
-            st.markdown(f'<div class="medium-risk">{recommendation}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="low-risk">{recommendation}</div>', unsafe_allow_html=True)
+    # 根据概率提供建议
+    risk_level, recommendation = get_risk_recommendation(current_val)
     
-    with result_col2:
-        # 生成并显示SHAP力图
-        st.markdown("### 📈 SHAP力分析图")
-        shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
-        st.image(shap_image, use_container_width=True)
+    if risk_level == "high":
+        st.markdown(f'<div class="high-risk">{recommendation}</div>', unsafe_allow_html=True)
+    elif risk_level == "medium":
+        st.markdown(f'<div class="medium-risk">{recommendation}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="low-risk">{recommendation}</div>', unsafe_allow_html=True)
+    
+    # SHAP图 - 居中
+    st.markdown("### 📈 SHAP力分析图")
+    st.markdown('<div class="shap-container">', unsafe_allow_html=True)
+    shap_image = create_shap_force_plot(base_val, shap_vals, sample_data)
+    st.image(shap_image, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # 页脚说明
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #666;'>
+<div class="footer">
     <p>💡 <strong>使用说明：</strong> 填写完所有评估指标后，点击"点击预测"按钮获取个性化衰弱风险评估结果</p>
+    <p>©2025 KOA预测系统 | 仅供临床参考</p>
 </div>
 """, unsafe_allow_html=True)
